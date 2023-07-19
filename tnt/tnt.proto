@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+option go_package = "github.com/palage4a/tnt-go-grpc/tnt";
+
+package main;
+
+service Tnt {
+  rpc Insert(Session) returns (Session) {}
+  rpc Get(Id) returns (Session) {}
+  rpc SayHello(Person) returns (Greeting) {}
+}
+
+message Person {
+  optional string name = 1;
+}
+
+message Greeting {
+  string message = 1;
+}
+
+message Id {
+  int32 id = 1;
+}
+
+message Session {
+  int32 id = 1;
+  int32 timestamp = 2;
+  optional string description = 3;
+}
