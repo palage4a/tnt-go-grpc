@@ -8,16 +8,11 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	pb "github.com/palage4a/tnt-go-grpc/tnt"
-)
-
-const (
-	defaultName = "me"
+	pb "github.com/palage4a/tnt-go-grpc/proto"
 )
 
 var (
 	addr = flag.String("addr", "localhost:50051", "the address to connect to")
-	name = flag.String("name", defaultName, "Name to greet")
 )
 
 func main() {
@@ -33,9 +28,32 @@ func main() {
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	r, err := c.SayHello(ctx, &pb.Person{Name: name})
-	if err != nil {
-		log.Fatalf("could not greet: %v", err)
+
+	// Work representation
+
+	// Prepare data
+	key := "SESSION_ID_1234"
+	value := "USER_ID_1234"
+
+	// Replace (or insert if it is not exists) a tuple
+	log.Println("Calling 'Replace' procedure...")
+	repl_resp, repl_err := c.Replace(ctx, &pb.ReplaceRequest{
+		Key: key,
+		Value: value,
+		Timestamp: time.Now().Unix(),
+	})
+	if repl_err != nil {
+		log.Fatal(repl_err)
 	}
-	log.Printf("Response: %s", r.GetMessage())
+	log.Printf("Replace response: { %s, %s, %d}", repl_resp.GetKey(), repl_resp.GetValue(), repl_resp.GetTimestamp())
+
+	// Get the inserted tuple
+	log.Println("Calling 'Get' procedure...")
+	get_resp, get_err := c.Get(ctx, &pb.GetRequest{
+		Key: key,
+	})
+	if get_err != nil {
+		log.Fatalf("Error: %s", get_err)
+	}
+	log.Printf("Get response: {%s, %s, %d }", get_resp.GetKey(), get_resp.GetValue(), get_resp.GetTimestamp())
 }

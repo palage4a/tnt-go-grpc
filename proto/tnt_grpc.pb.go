@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v4.23.4
-// source: tnt/tnt.proto
+// source: proto/tnt.proto
 
-package tnt
+package proto
 
 import (
 	context "context"
@@ -22,9 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TntClient interface {
-	Insert(ctx context.Context, in *Session, opts ...grpc.CallOption) (*Session, error)
-	Get(ctx context.Context, in *Id, opts ...grpc.CallOption) (*Session, error)
-	SayHello(ctx context.Context, in *Person, opts ...grpc.CallOption) (*Greeting, error)
+	Replace(ctx context.Context, in *ReplaceRequest, opts ...grpc.CallOption) (*ReplaceResponse, error)
+	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 }
 
 type tntClient struct {
@@ -35,27 +34,18 @@ func NewTntClient(cc grpc.ClientConnInterface) TntClient {
 	return &tntClient{cc}
 }
 
-func (c *tntClient) Insert(ctx context.Context, in *Session, opts ...grpc.CallOption) (*Session, error) {
-	out := new(Session)
-	err := c.cc.Invoke(ctx, "/main.Tnt/Insert", in, out, opts...)
+func (c *tntClient) Replace(ctx context.Context, in *ReplaceRequest, opts ...grpc.CallOption) (*ReplaceResponse, error) {
+	out := new(ReplaceResponse)
+	err := c.cc.Invoke(ctx, "/main.Tnt/Replace", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *tntClient) Get(ctx context.Context, in *Id, opts ...grpc.CallOption) (*Session, error) {
-	out := new(Session)
+func (c *tntClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
+	out := new(GetResponse)
 	err := c.cc.Invoke(ctx, "/main.Tnt/Get", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *tntClient) SayHello(ctx context.Context, in *Person, opts ...grpc.CallOption) (*Greeting, error) {
-	out := new(Greeting)
-	err := c.cc.Invoke(ctx, "/main.Tnt/SayHello", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -66,9 +56,8 @@ func (c *tntClient) SayHello(ctx context.Context, in *Person, opts ...grpc.CallO
 // All implementations must embed UnimplementedTntServer
 // for forward compatibility
 type TntServer interface {
-	Insert(context.Context, *Session) (*Session, error)
-	Get(context.Context, *Id) (*Session, error)
-	SayHello(context.Context, *Person) (*Greeting, error)
+	Replace(context.Context, *ReplaceRequest) (*ReplaceResponse, error)
+	Get(context.Context, *GetRequest) (*GetResponse, error)
 	mustEmbedUnimplementedTntServer()
 }
 
@@ -76,14 +65,11 @@ type TntServer interface {
 type UnimplementedTntServer struct {
 }
 
-func (UnimplementedTntServer) Insert(context.Context, *Session) (*Session, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Insert not implemented")
+func (UnimplementedTntServer) Replace(context.Context, *ReplaceRequest) (*ReplaceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Replace not implemented")
 }
-func (UnimplementedTntServer) Get(context.Context, *Id) (*Session, error) {
+func (UnimplementedTntServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
-}
-func (UnimplementedTntServer) SayHello(context.Context, *Person) (*Greeting, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SayHello not implemented")
 }
 func (UnimplementedTntServer) mustEmbedUnimplementedTntServer() {}
 
@@ -98,26 +84,26 @@ func RegisterTntServer(s grpc.ServiceRegistrar, srv TntServer) {
 	s.RegisterService(&Tnt_ServiceDesc, srv)
 }
 
-func _Tnt_Insert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Session)
+func _Tnt_Replace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplaceRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(TntServer).Insert(ctx, in)
+		return srv.(TntServer).Replace(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/main.Tnt/Insert",
+		FullMethod: "/main.Tnt/Replace",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TntServer).Insert(ctx, req.(*Session))
+		return srv.(TntServer).Replace(ctx, req.(*ReplaceRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Tnt_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Id)
+	in := new(GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -129,25 +115,7 @@ func _Tnt_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 		FullMethod: "/main.Tnt/Get",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TntServer).Get(ctx, req.(*Id))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Tnt_SayHello_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Person)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(TntServer).SayHello(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/main.Tnt/SayHello",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TntServer).SayHello(ctx, req.(*Person))
+		return srv.(TntServer).Get(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -160,18 +128,14 @@ var Tnt_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*TntServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Insert",
-			Handler:    _Tnt_Insert_Handler,
+			MethodName: "Replace",
+			Handler:    _Tnt_Replace_Handler,
 		},
 		{
 			MethodName: "Get",
 			Handler:    _Tnt_Get_Handler,
 		},
-		{
-			MethodName: "SayHello",
-			Handler:    _Tnt_SayHello_Handler,
-		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "tnt/tnt.proto",
+	Metadata: "proto/tnt.proto",
 }

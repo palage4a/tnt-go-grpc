@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+option go_package = "github.com/palage4a/tnt-go-grpc/proto";
+
+package main;
+
+service Tnt {
+  rpc Replace(ReplaceRequest) returns (ReplaceResponse) {}
+  rpc Get(GetRequest) returns (GetResponse) {}
+}
+
+message GetRequest {
+  string key = 1;
+}
+
+message GetResponse {
+  string key = 1;
+  string value = 2;
+  int64 timestamp = 3;
+  optional string meta = 4;
+}
+
+message ReplaceRequest {
+  string key = 1;
+  string value = 2;
+  int64 timestamp = 3;
+  optional string meta = 4;
+}
+
+message ReplaceResponse {
+  string key = 1;
+  string value = 2;
+  int64 timestamp = 3;
+  optional string meta = 4;
+}

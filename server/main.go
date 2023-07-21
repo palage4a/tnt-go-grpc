@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+
 	"google.golang.org/grpc"
 
 	tnt "github.com/tarantool/go-tarantool"
-	pb "github.com/palage4a/tnt-go-grpc/tnt"
+	pb "github.com/palage4a/tnt-go-grpc/proto"
 )
 
 var (
@@ -20,21 +21,68 @@ type server struct {
 	pb.UnimplementedTntServer
 }
 
-func (s *server) SayHello(c context.Context,in *pb.Person) (*pb.Greeting, error) {
-	opts := tnt.Opts{User: "guest"}
-	conn, err := tnt.Connect("127.0.0.1:3301", opts)
+func getConnection() (*tnt.Connection, error) {
+	log.Println("Connecting to tarantool...")
+	opts := tnt.Opts{User: "operator", Pass: "operator_pass"}
+	return tnt.Connect("127.0.0.1:3301", opts)
+}
+
+func (s *server) Replace(c context.Context, req *pb.ReplaceRequest) (resp *pb.ReplaceResponse, err error) {
+	conn, err := getConnection()
+	defer conn.Close()
 	if err != nil {
-		fmt.Println("Connection refused:", err)
+		return nil, fmt.Errorf("Error: %s", err)
 	}
 
-	resp, err := conn.Eval("name = ... return 'Hello from tnt to ' .. name", []interface{}{in.GetName()})
+	log.Println("Calling 'box.space.<space_name>:replace'...")
+	var res []*pb.ReplaceResponse
+	err = conn.Do(tnt.NewReplaceRequest("keyvalue").
+		Tuple([]interface{}{
+			req.GetKey(),
+			req.GetValue(),
+			req.GetTimestamp(),
+			req.GetMeta(),
+		},
+		),
+	).GetTyped(&res)
+
 	if err != nil {
-		return nil, fmt.Errorf("Error: ", err)
+		log.Println(err)
+		return nil, err
 	}
 
-	res := fmt.Sprintf("%s", resp.Data)
-	greeting := &pb.Greeting{Message: res}
-	return greeting, nil
+	if len(res) > 0 {
+		return res[0], nil
+	}
+
+	return nil, fmt.Errorf("unknown error: replace call return nothing")
+}
+
+func (s *server) Get(c context.Context, req *pb.GetRequest) (resp *pb.GetResponse, err error) {
+	conn, err := getConnection()
+	defer conn.Close()
+	if err != nil {
+		return nil, fmt.Errorf("Error: %s", err)
+	}
+
+	log.Println("Calling 'box.space.<space_name>:select'...")
+	var res []*pb.GetResponse
+	err = conn.Do(tnt.NewSelectRequest("keyvalue").
+		Iterator(tnt.IterEq).
+		Limit(1).
+		Index("primary").
+		Key(tnt.StringKey{S: req.GetKey()}),
+	).GetTyped(&res)
+
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	if len(res) > 0 {
+		return res[0], nil
+	}
+
+	return nil, fmt.Errorf("tuple with key %s is not found", req.GetKey())
 }
 
 func main() {
