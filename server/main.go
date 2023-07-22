@@ -23,7 +23,8 @@ type server struct {
 
 func getConnection() (*tnt.Connection, error) {
 	log.Println("Connecting to tarantool...")
-	opts := tnt.Opts{User: "operator", Pass: "operator_pass"}
+	// NOTE: default admin credentials
+	opts := tnt.Opts{User: "admin", Pass: "secret-cluster-cookie"}
 	return tnt.Connect("127.0.0.1:3301", opts)
 }
 
