@@ -6,15 +6,21 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"reflect"
 
 	"google.golang.org/grpc"
 
-	tnt "github.com/tarantool/go-tarantool"
 	pb "github.com/palage4a/tnt-go-grpc/proto"
+	tnt "github.com/tarantool/go-tarantool"
+	crud "github.com/tarantool/go-tarantool/crud"
 )
 
 var (
 	port = flag.Int("port", 50051, "The server port")
+	tnt_host = flag.String("host", "127.0.0.1", "The tnt host")
+	tnt_port = flag.Int("tntport", 3300, "The tnt port")
+	tnt_user = flag.String("tntuser", "admin", "User for connect to tnt")
+	tnt_passwd = flag.String("tntpasswd", "secret-cluster-cookie", "Password for connect to tnt")
 )
 
 type server struct {
@@ -23,9 +29,10 @@ type server struct {
 
 func getConnection() (*tnt.Connection, error) {
 	log.Println("Connecting to tarantool...")
-	// NOTE: default admin credentials
-	opts := tnt.Opts{User: "admin", Pass: "secret-cluster-cookie"}
-	return tnt.Connect("127.0.0.1:3301", opts)
+	// NOTE: admin credentials of "cartridge create" app
+	opts := tnt.Opts{User: *tnt_user, Pass: *tnt_passwd}
+	uri := fmt.Sprintf("%s:%d", *tnt_host, *tnt_port)
+	return tnt.Connect(uri, opts)
 }
 
 func (s *server) Replace(c context.Context, req *pb.ReplaceRequest) (resp *pb.ReplaceResponse, err error) {
@@ -34,28 +41,30 @@ func (s *server) Replace(c context.Context, req *pb.ReplaceRequest) (resp *pb.Re
 	if err != nil {
 		return nil, fmt.Errorf("Error: %s", err)
 	}
-
-	log.Println("Calling 'box.space.<space_name>:replace'...")
-	var res []*pb.ReplaceResponse
-	err = conn.Do(tnt.NewReplaceRequest("keyvalue").
-		Tuple([]interface{}{
+	log.Println("Calling 'crud.replace(<space_name>, ...)'...")
+	res := crud.MakeResult(reflect.TypeOf(&pb.ReplaceResponse{}))
+	err = conn.Do(crud.MakeReplaceRequest("keyvalue").
+		Opts(crud.SimpleOperationOpts{
+			Fields: crud.MakeOptTuple(
+				[]interface{}{"key", "value", "timestamp", "meta"},
+			),
+		}).
+		Tuple([]crud.Tuple{
 			req.GetKey(),
+			nil,
 			req.GetValue(),
 			req.GetTimestamp(),
 			req.GetMeta(),
-		},
-		),
+		}),
 	).GetTyped(&res)
-
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
-
-	if len(res) > 0 {
-		return res[0], nil
+	rows := res.Rows.([]*pb.ReplaceResponse)
+	if len(rows) != 0 {
+		return rows[0], nil
 	}
-
 	return nil, fmt.Errorf("unknown error: replace call return nothing")
 }
 
@@ -65,22 +74,24 @@ func (s *server) Get(c context.Context, req *pb.GetRequest) (resp *pb.GetRespons
 	if err != nil {
 		return nil, fmt.Errorf("Error: %s", err)
 	}
-
-	log.Println("Calling 'box.space.<space_name>:select'...")
-	var res []*pb.GetResponse
-	err = conn.Do(tnt.NewSelectRequest("keyvalue").
-		Iterator(tnt.IterEq).
-		Limit(1).
-		Index("primary").
-		Key(tnt.StringKey{S: req.GetKey()}),
+	log.Println("Calling 'crud.select(<space_name>,..)'...")
+	res := crud.MakeResult(reflect.TypeOf(&pb.GetResponse{}))
+	err = conn.Do(crud.MakeSelectRequest("keyvalue").
+		Opts(crud.SelectOpts{
+			First: crud.MakeOptInt(1),
+			Fields: crud.MakeOptTuple(
+				[]interface{}{"key", "value", "timestamp", "meta"},
+			),
+		}),
 	).GetTyped(&res)
 
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
-	if len(res) > 0 {
-		return res[0], nil
+	rows := res.Rows.([]*pb.GetResponse)
+	if len(rows) > 0 {
+		return rows[0], nil
 	}
 
 	return nil, fmt.Errorf("tuple with key %s is not found", req.GetKey())

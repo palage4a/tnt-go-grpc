@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"time"
 
+	pb "github.com/palage4a/tnt-go-grpc/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	pb "github.com/palage4a/tnt-go-grpc/proto"
 )
 
 var (
@@ -43,7 +44,7 @@ func main() {
 		Timestamp: time.Now().Unix(),
 	})
 	if repl_err != nil {
-		log.Fatal(repl_err)
+		fmt.Print(repl_err)
 	}
 	log.Printf("Replace response: { %s, %s, %d}", repl_resp.GetKey(), repl_resp.GetValue(), repl_resp.GetTimestamp())
 
@@ -53,7 +54,7 @@ func main() {
 		Key: key,
 	})
 	if get_err != nil {
-		log.Fatalf("Error: %s", get_err)
+		fmt.Print(repl_err)
 	}
 	log.Printf("Get response: {%s, %s, %d }", get_resp.GetKey(), get_resp.GetValue(), get_resp.GetTimestamp())
 }
