@@ -76,7 +76,11 @@ func (s *server) Get(c context.Context, req *pb.GetRequest) (resp *pb.GetRespons
 	}
 	log.Println("Calling 'crud.select(<space_name>,..)'...")
 	res := crud.MakeResult(reflect.TypeOf(&pb.GetResponse{}))
+	conditions := []crud.Condition{
+		crud.Condition{Operator: crud.Eq, Field: "key", Value: req.GetKey()},
+	}
 	err = conn.Do(crud.MakeSelectRequest("keyvalue").
+		Conditions(conditions).
 		Opts(crud.SelectOpts{
 			First: crud.MakeOptInt(1),
 			Fields: crud.MakeOptTuple(
