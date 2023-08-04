@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
-	"time"
 	"net/http"
-	"encoding/json"
+	"time"
 
 	pb "github.com/palage4a/tnt-go-grpc/proto"
 	"google.golang.org/grpc"
@@ -24,12 +25,9 @@ var (
 )
 
 func demo() {
-	// Work representation
-	// Contact the server and print out its response.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second * 10)
 	defer cancel()
 
-	// Replace (or insert if it is not exists) a tuple
 	log.Println("Calling 'Replace' procedure...")
 	repl_resp, repl_err := c.Replace(ctx, &pb.ReplaceRequest{
 		Key: *key,
@@ -41,7 +39,6 @@ func demo() {
 	}
 	log.Printf("Replace response: { %s, %s, %d}", repl_resp.GetKey(), repl_resp.GetValue(), repl_resp.GetTimestamp())
 
-	// Get the inserted tuple
 	log.Println("Calling 'Get' procedure...")
 	get_resp, get_err := c.Get(ctx, &pb.GetRequest{
 		Key: *key,
@@ -50,6 +47,86 @@ func demo() {
 		fmt.Print(repl_err)
 	}
 	log.Printf("Get response: {%s, %s, %d }", get_resp.GetKey(), get_resp.GetValue(), get_resp.GetTimestamp())
+
+	log.Println("Setup bidirectional RPC call")
+	waitAll := make(chan struct{}, 2)
+	go func() {
+		stream, err := c.GetStream(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+		waitc := make(chan struct{})
+		go func() {
+			for {
+				in, err := stream.Recv()
+				if err == io.EOF {
+					close(waitc)
+					return
+				}
+				if err != nil {
+					log.Println("get recv")
+					log.Fatal(err)
+				}
+				log.Printf("Get response: {%s, %s, %d }", in.GetKey(), in.GetValue(), in.GetTimestamp())
+			}
+		}()
+		tuples := []*pb.GetRequest{
+			{Key: "1"},
+			{Key: "2"},
+			{Key: "3"},
+			{Key: "4"},
+		}
+		for _, t := range tuples {
+			if err := stream.Send(t); err != nil {
+				log.Println("get send")
+				log.Fatal(err)
+			}
+		}
+		stream.CloseSend()
+		<-waitc
+		waitAll <- struct{}{}
+	}()
+
+	go func() {
+		stream, err := c.ReplaceStream(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+		waitc := make(chan struct{})
+		go func() {
+			for {
+				in, err := stream.Recv()
+				if err == io.EOF {
+					close(waitc)
+					return
+				}
+				if err != nil {
+					log.Println("replace recv")
+					log.Fatal(err)
+				}
+				log.Printf("Replace response: {%s, %s, %d }", in.GetKey(), in.GetValue(), in.GetTimestamp())
+			}
+		}()
+		tuples := []*pb.ReplaceRequest{
+			{Key: "1", Value: "value1"},
+			{Key: "2", Value: "value2"},
+			{Key: "3", Value: "value3"},
+			{Key: "4", Value: "value4"},
+		}
+		for _, t := range tuples {
+			if err := stream.Send(t); err != nil {
+				log.Println("replace send")
+				log.Fatal(err)
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
+		stream.CloseSend()
+		<-waitc
+		waitAll <- struct{}{}
+	}()
+
+	<-waitAll
+	<-waitAll
 }
 
 func replace(rw http.ResponseWriter, rq *http.Request) {

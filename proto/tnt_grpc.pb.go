@@ -24,6 +24,8 @@ const _ = grpc.SupportPackageIsVersion7
 type TntClient interface {
 	Replace(ctx context.Context, in *ReplaceRequest, opts ...grpc.CallOption) (*ReplaceResponse, error)
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
+	ReplaceStream(ctx context.Context, opts ...grpc.CallOption) (Tnt_ReplaceStreamClient, error)
+	GetStream(ctx context.Context, opts ...grpc.CallOption) (Tnt_GetStreamClient, error)
 }
 
 type tntClient struct {
@@ -52,12 +54,76 @@ func (c *tntClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOp
 	return out, nil
 }
 
+func (c *tntClient) ReplaceStream(ctx context.Context, opts ...grpc.CallOption) (Tnt_ReplaceStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Tnt_ServiceDesc.Streams[0], "/main.Tnt/ReplaceStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &tntReplaceStreamClient{stream}
+	return x, nil
+}
+
+type Tnt_ReplaceStreamClient interface {
+	Send(*ReplaceRequest) error
+	Recv() (*ReplaceResponse, error)
+	grpc.ClientStream
+}
+
+type tntReplaceStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *tntReplaceStreamClient) Send(m *ReplaceRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *tntReplaceStreamClient) Recv() (*ReplaceResponse, error) {
+	m := new(ReplaceResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *tntClient) GetStream(ctx context.Context, opts ...grpc.CallOption) (Tnt_GetStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Tnt_ServiceDesc.Streams[1], "/main.Tnt/GetStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &tntGetStreamClient{stream}
+	return x, nil
+}
+
+type Tnt_GetStreamClient interface {
+	Send(*GetRequest) error
+	Recv() (*GetResponse, error)
+	grpc.ClientStream
+}
+
+type tntGetStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *tntGetStreamClient) Send(m *GetRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *tntGetStreamClient) Recv() (*GetResponse, error) {
+	m := new(GetResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // TntServer is the server API for Tnt service.
 // All implementations must embed UnimplementedTntServer
 // for forward compatibility
 type TntServer interface {
 	Replace(context.Context, *ReplaceRequest) (*ReplaceResponse, error)
 	Get(context.Context, *GetRequest) (*GetResponse, error)
+	ReplaceStream(Tnt_ReplaceStreamServer) error
+	GetStream(Tnt_GetStreamServer) error
 	mustEmbedUnimplementedTntServer()
 }
 
@@ -70,6 +136,12 @@ func (UnimplementedTntServer) Replace(context.Context, *ReplaceRequest) (*Replac
 }
 func (UnimplementedTntServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedTntServer) ReplaceStream(Tnt_ReplaceStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method ReplaceStream not implemented")
+}
+func (UnimplementedTntServer) GetStream(Tnt_GetStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetStream not implemented")
 }
 func (UnimplementedTntServer) mustEmbedUnimplementedTntServer() {}
 
@@ -120,6 +192,58 @@ func _Tnt_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Tnt_ReplaceStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(TntServer).ReplaceStream(&tntReplaceStreamServer{stream})
+}
+
+type Tnt_ReplaceStreamServer interface {
+	Send(*ReplaceResponse) error
+	Recv() (*ReplaceRequest, error)
+	grpc.ServerStream
+}
+
+type tntReplaceStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *tntReplaceStreamServer) Send(m *ReplaceResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *tntReplaceStreamServer) Recv() (*ReplaceRequest, error) {
+	m := new(ReplaceRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _Tnt_GetStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(TntServer).GetStream(&tntGetStreamServer{stream})
+}
+
+type Tnt_GetStreamServer interface {
+	Send(*GetResponse) error
+	Recv() (*GetRequest, error)
+	grpc.ServerStream
+}
+
+type tntGetStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *tntGetStreamServer) Send(m *GetResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *tntGetStreamServer) Recv() (*GetRequest, error) {
+	m := new(GetRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Tnt_ServiceDesc is the grpc.ServiceDesc for Tnt service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -136,6 +260,19 @@ var Tnt_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Tnt_Get_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "ReplaceStream",
+			Handler:       _Tnt_ReplaceStream_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "GetStream",
+			Handler:       _Tnt_GetStream_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "proto/tnt.proto",
 }

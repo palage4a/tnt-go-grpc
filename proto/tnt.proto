@@ -7,6 +7,8 @@ package main;
 service Tnt {
   rpc Replace(ReplaceRequest) returns (ReplaceResponse) {}
   rpc Get(GetRequest) returns (GetResponse) {}
+  rpc ReplaceStream(stream ReplaceRequest) returns (stream ReplaceResponse) {}
+  rpc GetStream(stream GetRequest) returns (stream GetResponse) {}
 }
 
 message GetRequest {

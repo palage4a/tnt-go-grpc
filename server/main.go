@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"reflect"
+	"io"
 
 	"google.golang.org/grpc"
 
@@ -101,6 +102,99 @@ func (s *server) Get(c context.Context, req *pb.GetRequest) (resp *pb.GetRespons
 
 	return nil, fmt.Errorf("tuple with key %s is not found", req.GetKey())
 }
+
+func (s *server) ReplaceStream(stream pb.Tnt_ReplaceStreamServer) error {
+	conn, err := getConnection()
+	defer conn.Close()
+	if err != nil {
+		return fmt.Errorf("Error: %s", err)
+	}
+	for {
+		in, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		log.Println("Calling 'crud.replace(<space_name>, ...)'...")
+		res := crud.MakeResult(reflect.TypeOf(&pb.ReplaceResponse{}))
+		err = conn.Do(crud.MakeReplaceRequest(*tnt_space).
+			Opts(crud.SimpleOperationOpts{
+				Fields: crud.MakeOptTuple(
+					[]interface{}{"key", "value", "timestamp", "meta"},
+				),
+			}).
+			Tuple([]crud.Tuple{
+				in.GetKey(),
+				nil,
+				in.GetValue(),
+				in.GetTimestamp(),
+				in.GetMeta(),
+			}),
+		).GetTyped(&res)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		rows := res.Rows.([]*pb.ReplaceResponse)
+		if len(rows) != 0 {
+			if err := stream.Send(rows[0]); err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("unknown error: replace call return nothing")
+		}
+	}
+}
+
+func (s *server) GetStream(stream pb.Tnt_GetStreamServer) error {
+	conn, err := getConnection()
+	defer conn.Close()
+	if err != nil {
+		return fmt.Errorf("Error: %s", err)
+	}
+
+	for {
+		in, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		log.Println("Calling 'crud.select(<space_name>,..)'...")
+		res := crud.MakeResult(reflect.TypeOf(&pb.GetResponse{}))
+		conditions := []crud.Condition{
+			{Operator: crud.Eq, Field: "key", Value: in.GetKey()},
+		}
+		err = conn.Do(crud.MakeSelectRequest(*tnt_space).
+			Conditions(conditions).
+			Opts(crud.SelectOpts{
+				First: crud.MakeOptInt(1),
+				Fields: crud.MakeOptTuple(
+					[]interface{}{"key", "value", "timestamp", "meta"},
+				),
+			}),
+		).GetTyped(&res)
+
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		rows := res.Rows.([]*pb.GetResponse)
+		if len(rows) > 0 {
+			if err := stream.Send(rows[0]); err != nil {
+				log.Println(err)
+				return err
+			}
+		} else {
+			return fmt.Errorf("tuple with %s key wasn't found", in.GetKey())
+		}
+	}
+}
+
 
 func main() {
 	flag.Parse()
