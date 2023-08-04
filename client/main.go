@@ -103,7 +103,7 @@ func get(rw http.ResponseWriter, rq *http.Request) {
 	if err != nil {
 		http.Error(rw, err.Error(), 500)
 	}
-	log.Printf("Get response: {%s, %s, %d }", resp.GetKey(), resp.GetValue(), resp.GetTimestamp())
+	log.Printf("Get response: {%s, %s, %d, %s}", resp.GetKey(), resp.GetValue(), resp.GetTimestamp(), resp.GetMeta())
 	bts, err := json.Marshal(resp)
 	if err != nil {
 		http.Error(rw, err.Error(), 500)

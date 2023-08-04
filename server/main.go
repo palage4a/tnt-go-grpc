@@ -17,7 +17,8 @@ import (
 
 var (
 	port = flag.Int("port", 50051, "The server port")
-	tnt_host = flag.String("host", "127.0.0.1", "The tnt host")
+	tnt_space = flag.String("tntspace", "keyvalue", "The space used to operate")
+	tnt_host = flag.String("tnthost", "127.0.0.1", "The tnt host")
 	tnt_port = flag.Int("tntport", 3300, "The tnt port")
 	tnt_user = flag.String("tntuser", "admin", "User for connect to tnt")
 	tnt_passwd = flag.String("tntpasswd", "secret-cluster-cookie", "Password for connect to tnt")
@@ -43,7 +44,7 @@ func (s *server) Replace(c context.Context, req *pb.ReplaceRequest) (resp *pb.Re
 	}
 	log.Println("Calling 'crud.replace(<space_name>, ...)'...")
 	res := crud.MakeResult(reflect.TypeOf(&pb.ReplaceResponse{}))
-	err = conn.Do(crud.MakeReplaceRequest("keyvalue").
+	err = conn.Do(crud.MakeReplaceRequest(*tnt_space).
 		Opts(crud.SimpleOperationOpts{
 			Fields: crud.MakeOptTuple(
 				[]interface{}{"key", "value", "timestamp", "meta"},
@@ -77,9 +78,9 @@ func (s *server) Get(c context.Context, req *pb.GetRequest) (resp *pb.GetRespons
 	log.Println("Calling 'crud.select(<space_name>,..)'...")
 	res := crud.MakeResult(reflect.TypeOf(&pb.GetResponse{}))
 	conditions := []crud.Condition{
-		crud.Condition{Operator: crud.Eq, Field: "key", Value: req.GetKey()},
+		{Operator: crud.Eq, Field: "key", Value: req.GetKey()},
 	}
-	err = conn.Do(crud.MakeSelectRequest("keyvalue").
+	err = conn.Do(crud.MakeSelectRequest(*tnt_space).
 		Conditions(conditions).
 		Opts(crud.SelectOpts{
 			First: crud.MakeOptInt(1),
